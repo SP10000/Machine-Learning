@@ -1,0 +1,102 @@
+---
+title: "Machine Learning Excercise"
+author: "SP"
+date: "29 december 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+In this exercise a dataset is studied related to personal activities measured by accelerometers at several bodyparts. The goal is to find a model that could predict whether or not the exercise was performed in the right way
+
+## Load and preprocessing of the data
+At first the data should be retrieved and pre-processed.
+
+```{r load data}
+pml.training <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+pml.testing <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+```
+
+Reviewing the data shows that the pml.training set and pml.test set has both 160 variables and respectively 19622 and 20 observations. Analyzing the data in more detail show that there are a couple of columns in the dataset that don't have any relations with the accelerometers.For instance, 'x', 'user_name' and 'raw_timestamp_part_1'.
+
+
+```{r view colnames}
+colnames(pml.training)
+```
+
+Since the code above show the first 7 columns are not related to the goal of predicting, they are removed.
+
+```{r remove first 7 columns}
+pml.testing <- pml.testing[,8:160]
+pml.training <- pml.training[,8:160]
+```
+
+Scrolling through the dataset reveals also a lot of columns that have plenty of NA's in it.
+
+```{r review columns NAs}
+NA_training <- sapply(pml.training, function(x) sum(is.na(x)))
+NA_testing <- sapply(pml.testing, function(x) sum(is.na(x)))
+col_nummer <- seq(1:153)
+NA_df <- data.frame(as.data.frame(NA_training), as.data.frame(NA_testing), as.data.frame(col_nummer))
+print(NA_df)
+```
+
+Since 19216 of the 19622 observations in those columns are missing (~98%) or the 20 testcases have all NA on those columns, so they can be removed to reduce computation difficulties
+
+```{r remove NA columns}
+pml.training <- pml.training[c(1:4, 30:42, 53, 61, 77:79, 95, 106:117, 133, 144:153)]
+pml.testing <- pml.testing[c(1:4, 30:42, 53, 61, 77:79, 95, 106:117, 133, 144:153)]
+```
+
+This reduces the number of columns from 153 columns to 46.
+
+## Setting up a training and testing set for model selection
+
+To select a model, first the training dataset should be converted to a training part and validation part. To make the results comparable after serveral runs of the script a seed is set.
+
+```{r divide training data}
+library(caret)
+set.seed(5678)
+Trainpart = createDataPartition(pml.training$classe, p = 0.3)[[1]]
+
+training = pml.training[Trainpart,]
+validation = pml.training[-Trainpart,]
+```
+
+## Model creation
+
+Two different prediction models are explored: Recursive Partitioning and Random Forest. After fitting a prediction model, the accurarcy will be validated on the validation dataset.
+
+
+```{r make rpart model}
+rpart_mod <- train(classe~., method="rpart", data=training)
+```
+
+
+```{r make rf model}
+rf_mod <- train(classe~., method="rf", data=training)
+```
+
+Now the models are created the validation of the models can be done by running the models on the validation dataset.
+
+
+```{r predictions rpart}
+predict_rpart <- predict(rpart_mod, validation)
+confusionMatrix(predict_rpart, validation$classe)
+```
+
+```{r prediction rf}
+predict_rf <- predict(rf_mod, validation)
+confusionMatrix(predict_rf, validation$classe)
+```
+
+Evaluating the accuracy of all models the random forest model has the highest accuracy. 
+
+## Conclusion
+Since the accuracy of the random forest model is the highest, this model will be choosen to make the predicitons for the quiz related to this course. 
+
